@@ -1,3 +1,4 @@
+import { MongoClient, ObjectId } from "mongodb";
 import MeetupDetails from "../../components/meetups/MeetupDetails";
 import Head from 'next/head';
 
@@ -17,6 +18,57 @@ function MeetupDetailsPage(props) {
       />
     </>
   );
+}
+
+export async function getStaticPaths() {
+  const client = await MongoClient.connect(process.env.MONGO_URL);
+
+  const db = client.db();
+
+  const meetupsCollection = db.collection("meetups");
+
+  const meetups = await meetupsCollection.find({}, { _id: 1 }).toArray();
+
+  client.close();
+
+  return {
+    fallback: 'blocking', // This is show empty page whenever dosen't generate a static page for perticular url id. 
+    paths: meetups.map((meetup) => ({
+      // generate dynamically paths using id's
+      params: {
+        meetupId: meetup._id.toString(),
+      },
+    })),
+  };
+}
+
+export async function getStaticProps(context) {
+  const meetupId = context.params.meetupId; // fetching meetupId form url params.
+
+  // fetching meetups data for particular meetup (single meetup).
+  const client = await MongoClient.connect(process.env.MONGO_URL);
+
+  const db = client.db();
+
+  const meetupsCollection = db.collection("meetups");
+
+  const selectedMeetup = await meetupsCollection.findOne({
+    _id: new ObjectId(meetupId),
+  });
+
+  client.close();
+
+  return {
+    props: {
+      meetup: {
+        id: selectedMeetup._id.toString(),
+        image: selectedMeetup.image,
+        title: selectedMeetup.title,
+        address: selectedMeetup.address,
+        description: selectedMeetup.description,
+      },
+    },
+  };
 }
 
 export default MeetupDetailsPage;
